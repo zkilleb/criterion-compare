@@ -10,6 +10,10 @@ const collectionApi = axios.create({
     baseURL: 'https://www.criterion.com/collection/156927',
 });
 
+const wishlistApi = axios.create({
+    baseURL: 'https://www.criterion.com/wishlist/156926',
+});
+
 async function stripReleases() {
     let releases = [];
     const response = await allReleaseApi.get();
@@ -40,6 +44,19 @@ async function stripCollection() {
     return collection;
 }
 
+async function stripWishlist() {
+    let wishlist = [];
+    const response = await wishlistApi.get();
+    const $ = cheerio.load(response.data);
+    $('.wishlist-item').each((i, el) => {
+        wishlist.push({
+            title: $('.wl-title', el).text().replace(/\n/g, ''),
+            link: $('.wl-title', el).find('a').attr('href'),
+        })
+    });
+    return wishlist;
+}
+
 async function compareReleasesWithCollection() {
     const collection = await stripCollection();
     const releases = await stripReleases();
@@ -59,8 +76,10 @@ async function compareReleasesWithCollection() {
 
 async function writeToFile() {
     const results = await compareReleasesWithCollection();
+    const wishlist = await stripWishlist();
     const resultString = results.map((result) => {
-        return `${result.title} ${result.director} ${result.link}\n`
+        return `${result.title} ${result.director && '- ' + result.director + ' '}- ${result.link} ${wishlist.find((element) => 
+            element.title === result.title && element.link === result.link) ? '(In Wishlist)' : ''}\n`
     });
     fs.writeFile('releases.txt', resultString.join(''), (err) => {
         if (err) console.log(err);
